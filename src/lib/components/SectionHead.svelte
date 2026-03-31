@@ -33,13 +33,13 @@
   }
 
   .title-la {
-    font-size: 22px;
+    font-size: clamp(18px, 5.5vw, 22px);
     font-style: italic;
     color: #1e0f08;
   }
 
   .title-en {
-    font-size: 13px;
+    font-size: clamp(12px, 3.2vw, 13px);
     color: #7a5c14;
     font-variant: small-caps;
     letter-spacing: 0.5px;

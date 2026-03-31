@@ -32,24 +32,16 @@
   const ORBIT_SPEED = 0.008; // radians per frame
   const RETE_FACTOR = 2.5;
 
-  // ── State ──────────────────────────────────────────────────────────────────
   let canvas = $state<HTMLCanvasElement | null>(null);
-
-  // Both `angle` and `phase` are read in the template, so they need $state.
   let angle = $state(0);
   type Phase = 'idle' | 'orbiting' | 'returning';
   let phase = $state<Phase>('idle');
 
-  // Mutable vars used only in the animation loop — no DOM dependency.
   let rafId: number | null = null;
-  // Total distance of the current return trip (for the ease-out calculation).
   let returnDistance = 0;
-  // +1 = go forward to complete the orbit; -1 = go backward to origin.
   let returnDir: 1 | -1 = 1;
-
   let prepared: ReturnType<typeof prepareWithSegments> | null = null;
 
-  // ── Lifecycle ──────────────────────────────────────────────────────────────
   onMount(async () => {
     await document.fonts.ready;
     prepared = prepareWithSegments(TEXT, FONT);
@@ -60,7 +52,6 @@
     if (rafId !== null) cancelAnimationFrame(rafId);
   });
 
-  // ── Draw ───────────────────────────────────────────────────────────────────
   function draw(a: number) {
     if (!canvas || !prepared) return;
 
@@ -68,8 +59,8 @@
     const orbCy = ORBIT_CY + ORBIT_RY * Math.sin(a);
     const reteAngle = a * RETE_FACTOR;
 
-    const obsLeft  = orbCx - ORB_R - GAP;
-    const obsRight = orbCx + ORB_R + GAP;
+    const obsLeft   = orbCx - ORB_R - GAP;
+    const obsRight  = orbCx + ORB_R + GAP;
     const obsTop    = orbCy - ORB_R - GAP;
     const obsBottom = orbCy + ORB_R + GAP;
 
@@ -79,13 +70,13 @@
 
     drawAstrolabe(ctx, orbCx, orbCy, ORB_R, reteAngle);
 
-    // Header
-    ctx.font = 'small-caps 12px "IM Fell English"';
+    ctx.font = 'small-caps 14px "IM Fell English"';
     ctx.fillStyle = INK;
     ctx.textAlign = 'left';
     ctx.fillText('Hamlet, Prince of Denmark · Act III, Scene I · c. 1601', PAD, 36);
 
-    // Flowing text
+    const lineH = LINE_H;
+    const fullW = W - PAD * 2;
     ctx.font = FONT;
     ctx.fillStyle = INK;
     ctx.textAlign = 'left';
@@ -94,7 +85,7 @@
     let y = TEXT_START_Y;
 
     while (true) {
-      const vertOverlap = y > obsTop && (y - LINE_H) < obsBottom;
+      const vertOverlap = y > obsTop && (y - lineH) < obsBottom;
 
       let x: number;
       let maxW: number;
@@ -109,11 +100,11 @@
         }
       } else {
         x = PAD;
-        maxW = W - PAD * 2;
+        maxW = fullW;
       }
 
       if (maxW < 60) {
-        y += LINE_H;
+        y += lineH;
         if (y > H - PAD) break;
         continue;
       }
@@ -123,7 +114,7 @@
 
       ctx.fillText(line.text, x, y);
       cursor = line.end;
-      y += LINE_H;
+      y += lineH;
       if (y > H - PAD) break;
     }
 
@@ -133,7 +124,6 @@
     ctx.fillText('Astrolabium', orbCx, orbCy + ORB_R + 14);
   }
 
-  // ── Normal orbit ───────────────────────────────────────────────────────────
   function startAnimation() {
     if (phase === 'returning') return;
     cancelRaf();
@@ -154,18 +144,14 @@
     phase = 'idle';
   }
 
-  // ── Smart return ───────────────────────────────────────────────────────────
-  // Shortest-path rule (on a circle, origin = 0):
-  //   · Going backward costs `angle`      → shortest when angle < π
-  //   · Going forward costs  `2π − angle` → shortest when angle ≥ π
   function reset() {
     if (phase === 'returning') return;
     if (angle === 0) return;
 
     cancelRaf();
 
-    const backward = angle;           // cost going back to 0
-    const forward  = Math.PI * 2 - angle; // cost going forward to 2π (= 0)
+    const backward = angle;
+    const forward  = Math.PI * 2 - angle;
 
     if (backward <= forward) {
       returnDir = -1;
@@ -182,10 +168,8 @@
   function stepReturn() {
     if (phase !== 'returning') return;
 
-    // Remaining distance to origin from the current angle.
     const distToOrigin = returnDir === -1 ? angle : (Math.PI * 2 - angle);
 
-    // Snap to origin when close enough.
     if (distToOrigin <= 0.005) {
       angle = 0;
       draw(0);
@@ -193,18 +177,14 @@
       return;
     }
 
-    // Ease-out: linear interpolation from full speed down to 20% as we approach.
-    // t goes from 1 (just started) to 0 (at origin).
     const t = distToOrigin / returnDistance;
     const speed = ORBIT_SPEED * (0.2 + 0.8 * t);
-    // Never overshoot the origin.
     const step = Math.min(speed, distToOrigin);
 
     if (returnDir === -1) {
       angle = angle - step;
     } else {
       angle = angle + step;
-      // When going forward and we've completed the circle, snap to origin.
       if (angle >= Math.PI * 2) {
         angle = 0;
         draw(0);
@@ -217,7 +197,6 @@
     rafId = requestAnimationFrame(stepReturn);
   }
 
-  // ── Helpers ────────────────────────────────────────────────────────────────
   function cancelRaf() {
     if (rafId !== null) {
       cancelAnimationFrame(rafId);
@@ -235,27 +214,29 @@
     re-broken around wherever the obstacle happens to be — left, right, or centre.
   </p>
 
-  <div class="canvas-scroll">
-    <canvas bind:this={canvas}></canvas>
-  </div>
+  <div class="canvas-wrap">
+    <div class="canvas-scroll">
+      <canvas bind:this={canvas}></canvas>
+    </div>
 
-  <div class="controls">
-    {#if phase === 'orbiting'}
-      <button class="btn btn-stop" onclick={stopAnimation}>⏸ Parar</button>
-    {:else}
-      <button class="btn btn-spin" onclick={startAnimation} disabled={phase === 'returning'}>
-        ↻ Girar
+    <div class="controls">
+      {#if phase === 'orbiting'}
+        <button class="btn btn-stop" onclick={stopAnimation}>⏸ Parar</button>
+      {:else}
+        <button class="btn btn-spin" onclick={startAnimation} disabled={phase === 'returning'}>
+          ↻ Girar
+        </button>
+      {/if}
+
+      <button
+        class="btn"
+        class:btn-returning={phase === 'returning'}
+        onclick={reset}
+        disabled={angle === 0 || phase === 'returning'}
+      >
+        {phase === 'returning' ? '⟲ Retornando…' : '⟳ Reiniciar'}
       </button>
-    {/if}
-
-    <button
-      class="btn"
-      class:btn-returning={phase === 'returning'}
-      onclick={reset}
-      disabled={angle === 0 || phase === 'returning'}
-    >
-      {phase === 'returning' ? '⟲ Retornando…' : '⟳ Reiniciar'}
-    </button>
+    </div>
   </div>
 </section>
 
@@ -266,7 +247,7 @@
 
   .desc {
     font-size: 16px;
-    line-height: 1.65;
+    line-height: 1.7;
     color: #3d2010;
     margin-bottom: 24px;
   }
@@ -280,24 +261,44 @@
     color: #1e0f08;
   }
 
+  @media (max-width: 480px) {
+    .desc { font-size: 17px; }
+    code  { font-size: 14px; }
+
+    .btn {
+      font-size: 15px;
+      padding: 8px 20px;
+    }
+  }
+
+  /* Outer wrapper: block-level, caps width */
+  .canvas-wrap {
+    width: 100%;
+    max-width: 560px;
+  }
+
+  /* Scroll container */
   .canvas-scroll {
-    position: relative;
-    display: inline-block;
-    max-width: 100%;
+    display: block;
+    width: 100%;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     box-shadow: 3px 3px 12px rgba(0, 0, 0, 0.12);
     border: 1px solid #c4a254;
     line-height: 0;
+    position: relative;
   }
 
   canvas {
     display: block;
+    max-width: 100%;
+    height: auto;
   }
 
-  /* ── Controls ─────────────────────────────────────── */
+  /* ── Controls ────────────────────────────── */
   .controls {
     display: flex;
+    flex-wrap: wrap;
     gap: 10px;
     margin-top: 14px;
   }
@@ -312,6 +313,8 @@
     cursor: pointer;
     position: relative;
     transition: background 0.12s;
+    /* Ensure buttons don't shrink smaller than their text */
+    white-space: nowrap;
   }
 
   .btn:hover:not(:disabled) {
@@ -341,7 +344,6 @@
     background: #f5e0d4;
   }
 
-  /* Subtle pulsing border while the astrolabe is finding its way home */
   .btn-returning {
     border-color: #7a5c14;
     color: #7a5c14;

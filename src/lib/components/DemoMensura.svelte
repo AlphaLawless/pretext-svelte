@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { prepare, layout } from '@chenglou/pretext';
   import { BODY_FONT, BODY_LINE_H } from '../constants.js';
   import SectionHead from './SectionHead.svelte';
@@ -12,13 +12,13 @@
     'than mutton, a salad on most nights, scraps on Saturdays, lentils on Fridays, and a ' +
     'pigeon or so extra on Sundays, made away with three-quarters of his income.';
 
-  let sliderWidth = $state(400);
+  let sliderWidth = $state(320);
+  let maxSliderWidth = $state(500);
   let computedHeight = $state(0);
   let computedLines = $state(0);
   let prepared = $state<ReturnType<typeof prepare> | null>(null);
+  let textColEl = $state<HTMLElement | null>(null);
 
-  // Recompute whenever sliderWidth or prepared changes.
-  // No DOM reads — pure arithmetic over the cached segment widths.
   $effect(() => {
     if (!prepared) return;
     const r = layout(prepared, sliderWidth, BODY_LINE_H);
@@ -26,10 +26,26 @@
     computedLines = r.lineCount;
   });
 
+  let ro: ResizeObserver | null = null;
+
   onMount(async () => {
     await document.fonts.ready;
     prepared = prepare(TEXT, BODY_FONT);
   });
+
+  // Separate sync onMount so it can return a cleanup function.
+  onMount(() => {
+    if (!textColEl) return;
+    ro = new ResizeObserver(([entry]) => {
+      const w = Math.floor(entry.contentRect.width);
+      maxSliderWidth = Math.min(500, w);
+      if (sliderWidth > maxSliderWidth) sliderWidth = maxSliderWidth;
+    });
+    ro.observe(textColEl);
+    return () => ro?.disconnect();
+  });
+
+  onDestroy(() => ro?.disconnect());
 </script>
 
 <section>
@@ -42,18 +58,19 @@
   </p>
 
   <div class="layout">
-    <div class="text-col">
+    <div class="text-col" bind:this={textColEl}>
       <div class="controls">
         <span class="label">Width</span>
-        <input class="slider" type="range" min="180" max="500" bind:value={sliderWidth} />
+        <input
+          class="slider"
+          type="range"
+          min="120"
+          max={maxSliderWidth}
+          bind:value={sliderWidth}
+        />
         <span class="value">{sliderWidth}px</span>
       </div>
 
-      <!--
-        The text-box intentionally uses an inline width so the line breaks
-        change visibly as the slider moves. overflow: hidden on the wrapper
-        prevents it from blowing out the flex parent on narrow viewports.
-      -->
       <div class="text-box-clip">
         <div
           class="text-box"
@@ -67,15 +84,17 @@
     </div>
 
     <div class="metrics" aria-live="polite">
-      <div class="metric">
-        <span class="metric-val">{computedHeight}<span class="unit">px</span></span>
-        <span class="metric-lbl">height</span>
+      <div class="metrics-row">
+        <div class="metric">
+          <span class="metric-val">{computedHeight}<span class="unit">px</span></span>
+          <span class="metric-lbl">height</span>
+        </div>
+        <div class="metric">
+          <span class="metric-val">{computedLines}</span>
+          <span class="metric-lbl">lines</span>
+        </div>
       </div>
-      <div class="metric">
-        <span class="metric-val">{computedLines}</span>
-        <span class="metric-lbl">lines</span>
-      </div>
-      <p class="note">↑ Pure arithmetic.<br />Zero DOM reads on resize.</p>
+      <p class="note">↑ Pure arithmetic. Zero DOM reads on resize.</p>
     </div>
   </div>
 </section>
@@ -87,7 +106,7 @@
 
   .desc {
     font-size: 16px;
-    line-height: 1.65;
+    line-height: 1.7;
     color: #3d2010;
     margin-bottom: 24px;
   }
@@ -101,7 +120,17 @@
     color: #1e0f08;
   }
 
-  /* ── Two-column layout ──────────────────────────── */
+  @media (max-width: 480px) {
+    .desc {
+      font-size: 17px;
+    }
+
+    code {
+      font-size: 14px;
+    }
+  }
+
+  /* ── Two-column layout ───────────────────── */
   .layout {
     display: flex;
     gap: 28px;
@@ -109,19 +138,23 @@
   }
 
   .text-col {
-    /* flex: 1 with min-width: 0 prevents the child text-box from
-       blowing out the flex container. */
     flex: 1;
     min-width: 0;
   }
 
   .metrics {
-    width: 130px;
+    width: 140px;
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
     gap: 10px;
     padding-top: 40px;
+  }
+
+  .metrics-row {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
   }
 
   /* Stack on narrow viewports */
@@ -132,13 +165,19 @@
 
     .metrics {
       width: 100%;
-      flex-direction: row;
-      flex-wrap: wrap;
       padding-top: 0;
+    }
+
+    .metrics-row {
+      flex-direction: row;
+    }
+
+    .metric {
+      flex: 1;
     }
   }
 
-  /* ── Controls ───────────────────────────────────── */
+  /* ── Controls ────────────────────────────── */
   .controls {
     display: flex;
     align-items: center;
@@ -147,7 +186,7 @@
   }
 
   .label {
-    font-size: 13px;
+    font-size: clamp(13px, 3.5vw, 14px);
     font-variant: small-caps;
     color: #7a5c14;
     white-space: nowrap;
@@ -168,17 +207,14 @@
     font-variant-numeric: tabular-nums;
   }
 
-  /* ── Text box ───────────────────────────────────── */
+  /* ── Text box ────────────────────────────── */
   .text-box-clip {
-    /* Clips the text-box when it is wider than the flex column,
-       keeping horizontal page scroll contained within this element. */
     overflow-x: auto;
     max-width: 100%;
     -webkit-overflow-scrolling: touch;
   }
 
   .text-box {
-    /* Font/size must match BODY_FONT / BODY_LINE_H for pretext accuracy. */
     font-family: 'IM Fell English', Georgia, serif;
     font-size: 18px;
     word-break: normal;
@@ -188,8 +224,6 @@
     border: 1px solid #c4a254;
     padding: 14px 16px;
     color: #2c1810;
-    /* No transition — the metrics update instantly and a CSS width
-       animation would create a visible lag between them. */
   }
 
   .attr {
@@ -199,7 +233,7 @@
     margin-top: 6px;
   }
 
-  /* ── Metrics ────────────────────────────────────── */
+  /* ── Metrics ─────────────────────────────── */
   .metric {
     background: #f0e4c0;
     border: 1px solid #c4a254;
@@ -235,8 +269,20 @@
     font-style: italic;
     color: #7a5c14;
     line-height: 1.5;
-    text-align: center;
     border-top: 1px solid #c4a254;
     padding-top: 10px;
+    text-align: center;
+  }
+
+  @media (max-width: 540px) {
+    .note {
+      text-align: left;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .attr    { font-size: 13px; }
+    .note    { font-size: 13px; }
+    .metric-lbl { font-size: 12px; }
   }
 </style>

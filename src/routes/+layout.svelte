@@ -34,9 +34,16 @@
     color: #2c1810;
     font-family: 'IM Fell English', Georgia, serif;
     font-size: 18px;
-    line-height: 1.55;
-    /* Prevents a horizontal scrollbar if any child overflows.
-       Individual scroll containers handle their own overflow. */
+    line-height: 1.6;
     overflow-x: hidden;
+  }
+
+  /* IM Fell English has thin strokes — it needs generous sizing to stay
+     legible on narrow screens. Bump the baseline up, not down. */
+  @media (max-width: 480px) {
+    :global(body) {
+      font-size: 17px;
+      line-height: 1.65;
+    }
   }
 </style>

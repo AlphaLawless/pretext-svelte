@@ -32,8 +32,6 @@
 
   const FONT = '16px "IM Fell English"';
   const LINE_H = 26;
-  // Maximum width budget for the initial walkLineRanges pass.
-  // Quotes that fit on one line at this width get a tight single-line card.
   const MAX_W = 300;
 
   let items = $state<ShrinkItem[]>([]);
@@ -47,14 +45,11 @@
     items = QUOTES.map((q) => {
       const prepared = prepareWithSegments(q.text, FONT);
 
-      // walkLineRanges gives us the actual rendered line widths without
-      // materialising the text strings. The tightest container is simply
-      // the widest of those lines.
       let maxLineW = 0;
       walkLineRanges(prepared, MAX_W, (line) => {
         if (line.width > maxLineW) maxLineW = line.width;
       });
-      const shrinkW = Math.ceil(maxLineW) + 20; // +20px breathing room
+      const shrinkW = Math.ceil(maxLineW) + 20;
 
       const { lines } = layoutWithLines(prepared, shrinkW, LINE_H);
       return { ...q, width: shrinkW, lines: lines.map((l) => l.text) };
@@ -73,7 +68,7 @@
 
   <div class="grid">
     {#each items as item}
-      <div class="card" style="width: {item.width}px;" dir={item.dir ?? 'ltr'}>
+      <div class="card" style="width: min({item.width}px, 100%);" dir={item.dir ?? 'ltr'}>
         <div class="text">
           {#each item.lines as line}
             <div>{line}</div>
@@ -95,7 +90,7 @@
 
   .desc {
     font-size: 16px;
-    line-height: 1.65;
+    line-height: 1.7;
     color: #3d2010;
     margin-bottom: 24px;
   }
@@ -109,53 +104,59 @@
     color: #1e0f08;
   }
 
-  /* ── Grid ───────────────────────────────────────── */
+  @media (max-width: 480px) {
+    .desc { font-size: 17px; }
+    code  { font-size: 14px; }
+  }
+
+  /* ── Grid ────────────────────────────────── */
   .grid {
     display: flex;
     flex-wrap: wrap;
-    gap: 18px;
-    /* Allows items to overflow-scroll individually rather than
-       pushing the grid row wider than the viewport. */
-    min-width: 0;
+    gap: 16px;
+    /* Align cards to the start so short cards don't stretch */
+    align-items: flex-start;
   }
 
-  /* ── Card ───────────────────────────────────────── */
+  /* ── Card ────────────────────────────────── */
   .card {
     background: #f0e4c0;
     border: 1px solid #c4a254;
     padding: 12px 14px 8px;
     box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.08);
-    /* Establishes a stacking context so the shadow is never
-       clipped by a parent overflow rule. */
     position: relative;
-    /* Prevent the card from growing wider than the viewport. */
+    /* min() in the inline style already caps width to 100%, but this
+       ensures the card never exceeds its grid row on tiny screens. */
     max-width: 100%;
-    /* Clip rather than scroll if the content ever exceeds the
-       pretext-computed width (e.g. font not yet loaded). */
     overflow: hidden;
+    /* Prevent card from collapsing below its content */
+    min-width: 0;
   }
 
-  /* ── Quote text ─────────────────────────────────── */
+  /* ── Quote text ──────────────────────────── */
   .text {
     font-family: 'IM Fell English', Georgia, serif;
     font-size: 16px;
     line-height: 26px;
     color: #1e0f08;
-    /* pretext sized the card — trust the width and don't wrap again. */
+    /* pretext sized the card — let the text overflow-scroll rather than
+       reflow, which would make the measured width incorrect. */
     white-space: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
-  /* ── Footer row ─────────────────────────────────── */
+  /* ── Footer row ──────────────────────────── */
   .footer {
     display: flex;
     justify-content: space-between;
-    /* flex-end avoids cross-browser baseline discrepancies with
-       mixed-direction content such as the Arabic card. */
     align-items: flex-end;
     gap: 8px;
     margin-top: 6px;
     border-top: 1px solid #c4a254;
     padding-top: 4px;
+    /* Allow footer to wrap if both pieces of text are long */
+    flex-wrap: wrap;
   }
 
   .attr {
@@ -165,6 +166,7 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    min-width: 0;
   }
 
   .badge {
@@ -174,5 +176,10 @@
     color: #9a7a3a;
     white-space: nowrap;
     flex-shrink: 0;
+  }
+
+  @media (max-width: 480px) {
+    .attr  { font-size: 13px; }
+    .badge { font-size: 12px; }
   }
 </style>

@@ -58,12 +58,25 @@
     padding: 0 24px 80px;
   }
 
+  @media (max-width: 480px) {
+    main {
+      padding: 0 16px 56px;
+    }
+  }
+
   /* ── Header ─────────────────────────────────────── */
   header {
     text-align: center;
     padding: 56px 0 40px;
     border-bottom: 1px solid #9a7a3a;
     margin-bottom: 52px;
+  }
+
+  @media (max-width: 480px) {
+    header {
+      padding: 36px 0 28px;
+      margin-bottom: 36px;
+    }
   }
 
   .orn {
@@ -97,6 +110,16 @@
   .tagline-en {
     font-size: 15px;
     color: #5c3d1f;
+  }
+
+  @media (max-width: 480px) {
+    .tagline-la {
+      font-size: 13px;
+    }
+
+    .tagline-en {
+      font-size: 13px;
+    }
   }
 
   /* ── Footer ─────────────────────────────────────── */
