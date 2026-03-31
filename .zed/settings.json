@@ -1,0 +1,32 @@
+{
+  "languages": {
+    "JavaScript": {
+      "formatter": [
+        { "language_server": { "name": "biome" } },
+        { "code_action": "source.organizeImports.biome" },
+        { "code_action": "source.fixAll.biome" }
+      ]
+    },
+    "Svelte": {
+      "format_on_save": "off",
+      "formatter": [
+        { "language_server": { "name": "biome" } },
+        { "code_action": "source.fixAll.biome" }
+      ]
+    },
+    "TypeScript": {
+      "formatter": [
+        { "language_server": { "name": "biome" } },
+        { "code_action": "source.organizeImports.biome" },
+        { "code_action": "source.fixAll.biome" }
+      ]
+    },
+    "TSX": {
+      "formatter": [
+        { "language_server": { "name": "biome" } },
+        { "code_action": "source.organizeImports.biome" },
+        { "code_action": "source.fixAll.biome" }
+      ]
+    }
+  }
+}

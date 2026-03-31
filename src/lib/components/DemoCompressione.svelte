@@ -1,0 +1,178 @@
+<script lang="ts">
+  import { onMount } from 'svelte';
+  import { prepareWithSegments, layoutWithLines, walkLineRanges } from '@chenglou/pretext';
+  import SectionHead from './SectionHead.svelte';
+
+  interface QuoteEntry {
+    text: string;
+    attr: string;
+    dir?: 'ltr' | 'rtl';
+  }
+
+  interface ShrinkItem extends QuoteEntry {
+    width: number;
+    lines: string[];
+  }
+
+  const QUOTES: QuoteEntry[] = [
+    { text: 'Cogito, ergo sum.', attr: 'Descartes · 1637' },
+    { text: 'E pur si muove.', attr: 'Galilei · c. 1633' },
+    { text: '春眠不覺曉，處處聞啼鳥。', attr: 'Meng Haoran · 689' },
+    { text: 'Vanity of vanities; all is vanity.', attr: 'KJV Ecclesiastes · 1611' },
+    {
+      text: 'مَنْ عَاشَ مَاتَ، وَمَنْ مَاتَ فَاتَ.',
+      attr: 'Arabic proverb',
+      dir: 'rtl',
+    },
+    {
+      text: 'Homo sum, humani nihil a me alienum puto.',
+      attr: 'Terence · 163 BC',
+    },
+  ];
+
+  const FONT = '16px "IM Fell English"';
+  const LINE_H = 26;
+  // Maximum width budget for the initial walkLineRanges pass.
+  // Quotes that fit on one line at this width get a tight single-line card.
+  const MAX_W = 300;
+
+  let items = $state<ShrinkItem[]>([]);
+
+  onMount(async () => {
+    await document.fonts.ready;
+    build();
+  });
+
+  function build() {
+    items = QUOTES.map((q) => {
+      const prepared = prepareWithSegments(q.text, FONT);
+
+      // walkLineRanges gives us the actual rendered line widths without
+      // materialising the text strings. The tightest container is simply
+      // the widest of those lines.
+      let maxLineW = 0;
+      walkLineRanges(prepared, MAX_W, (line) => {
+        if (line.width > maxLineW) maxLineW = line.width;
+      });
+      const shrinkW = Math.ceil(maxLineW) + 20; // +20px breathing room
+
+      const { lines } = layoutWithLines(prepared, shrinkW, LINE_H);
+      return { ...q, width: shrinkW, lines: lines.map((l) => l.text) };
+    });
+  }
+</script>
+
+<section>
+  <SectionHead numeral="IV." titleLa="De Compressione" titleEn="On Compression" />
+
+  <p class="desc">
+    <code>walkLineRanges()</code> returns each line's width without building text strings.
+    Here it finds the tightest container that still fits each quote — the "shrink-wrap"
+    that CSS has always lacked for multiline text, across any script.
+  </p>
+
+  <div class="grid">
+    {#each items as item}
+      <div class="card" style="width: {item.width}px;" dir={item.dir ?? 'ltr'}>
+        <div class="text">
+          {#each item.lines as line}
+            <div>{line}</div>
+          {/each}
+        </div>
+        <div class="footer">
+          <span class="attr">{item.attr}</span>
+          <span class="badge">{item.width}px</span>
+        </div>
+      </div>
+    {/each}
+  </div>
+</section>
+
+<style>
+  section {
+    margin-bottom: 64px;
+  }
+
+  .desc {
+    font-size: 16px;
+    line-height: 1.65;
+    color: #3d2010;
+    margin-bottom: 24px;
+  }
+
+  code {
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    background: rgba(0, 0, 0, 0.07);
+    padding: 1px 5px;
+    border-radius: 2px;
+    color: #1e0f08;
+  }
+
+  /* ── Grid ───────────────────────────────────────── */
+  .grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px;
+    /* Allows items to overflow-scroll individually rather than
+       pushing the grid row wider than the viewport. */
+    min-width: 0;
+  }
+
+  /* ── Card ───────────────────────────────────────── */
+  .card {
+    background: #f0e4c0;
+    border: 1px solid #c4a254;
+    padding: 12px 14px 8px;
+    box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.08);
+    /* Establishes a stacking context so the shadow is never
+       clipped by a parent overflow rule. */
+    position: relative;
+    /* Prevent the card from growing wider than the viewport. */
+    max-width: 100%;
+    /* Clip rather than scroll if the content ever exceeds the
+       pretext-computed width (e.g. font not yet loaded). */
+    overflow: hidden;
+  }
+
+  /* ── Quote text ─────────────────────────────────── */
+  .text {
+    font-family: 'IM Fell English', Georgia, serif;
+    font-size: 16px;
+    line-height: 26px;
+    color: #1e0f08;
+    /* pretext sized the card — trust the width and don't wrap again. */
+    white-space: nowrap;
+  }
+
+  /* ── Footer row ─────────────────────────────────── */
+  .footer {
+    display: flex;
+    justify-content: space-between;
+    /* flex-end avoids cross-browser baseline discrepancies with
+       mixed-direction content such as the Arabic card. */
+    align-items: flex-end;
+    gap: 8px;
+    margin-top: 6px;
+    border-top: 1px solid #c4a254;
+    padding-top: 4px;
+  }
+
+  .attr {
+    font-size: 11px;
+    font-style: italic;
+    color: #7a5c14;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .badge {
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    font-variant: small-caps;
+    color: #9a7a3a;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+</style>
