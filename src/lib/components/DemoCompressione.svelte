@@ -49,7 +49,7 @@
       walkLineRanges(prepared, MAX_W, (line) => {
         if (line.width > maxLineW) maxLineW = line.width;
       });
-      const shrinkW = Math.ceil(maxLineW) + 20;
+      const shrinkW = Math.ceil(maxLineW) + 28;
 
       const { lines } = layoutWithLines(prepared, shrinkW, LINE_H);
       return { ...q, width: shrinkW, lines: lines.map((l) => l.text) };
